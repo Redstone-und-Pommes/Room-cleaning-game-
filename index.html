@@ -116,6 +116,95 @@
             pointer-events: none;
         }
 
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 25px;
+            border-radius: 10px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            pointer-events: all;
+            z-index: 500;
+        }
+
+        .control-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .control-button:hover {
+            background: #764ba2;
+            transform: scale(1.05);
+        }
+
+        .control-button.active {
+            background: #4ade80;
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 12px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #4ade80;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(16px);
+        }
+
         .start-screen {
             position: absolute;
             top: 0;
@@ -244,6 +333,25 @@
             background: #22c55e;
             transform: scale(1.05);
         }
+
+        .cancel-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            pointer-events: all;
+            z-index: 501;
+        }
+
+        .cancel-button:hover {
+            background: #cc0000;
+        }
     </style>
 </head>
 <body>
@@ -271,6 +379,20 @@
             </div>
         </div>
 
+        <!-- Control Panel während Spiel -->
+        <div class="control-panel" id="controlPanel" style="display: none;">
+            <button class="control-button" onclick="toggleCamera()">📷 Kamera wechseln</button>
+            <div class="toggle-switch">
+                <span>👋 Dev-Mode:</span>
+                <label class="switch">
+                    <input type="checkbox" id="devModeToggle" onchange="toggleDevMode()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <button class="cancel-button" id="cancelButton" style="display: none;" onclick="cancelGame()">❌ Abbrechen</button>
+
         <div class="start-screen" id="startScreen">
             <div class="start-content">
                 <h1>🧹 Room Cleaning Game</h1>
@@ -278,7 +400,7 @@
                 <button class="start-button" onclick="startGame()">Spiel starten</button>
                 <ul class="instructions">
                     <li>✅ Erlaube Kamerazugriff</li>
-                    <li>🔍 Raum scannen</li>
+                    <li>🔍 Punkte sind auf der Wand fixiert</li>
                     <li>👋 Mit Hand über Schmutzpunkte fahren</li>
                     <li>🎵 Bubble Sound = Punkt weg!</li>
                     <li>📊 Versuche 100% zu erreichen</li>
