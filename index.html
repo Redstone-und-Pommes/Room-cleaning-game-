@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Cleaning Game 🧹</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: #000;
+        }
+
+        #camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .ui-panel {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            backdrop-filter: blur(5px);
+        }
+
+        .top-left {
+            top: 20px;
+            left: 20px;
+        }
+
+        .top-right {
+            top: 20px;
+            right: 20px;
+            text-align: right;
+        }
+
+        .bottom-center {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 500px;
+        }
+
+        .score {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4ade80;
+            margin-bottom: 10px;
+        }
+
+        .progress-container {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            height: 30px;
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .status-text {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #fbbf24;
+        }
+
+        #canvas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            pointer-events: all;
+        }
+
+        .start-screen.hidden {
+            display: none;
+            pointer-events: none;
+        }
+
+        .start-content {
+            text-align: center;
+            color: white;
+        }
+
+        .start-content h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .start-content p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .start-button {
+            background: #4ade80;
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            pointer-events: all;
+        }
+
+        .start-button:hover {
+            background: #22c55e;
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .start-button:active {
+            transform: scale(0.95);
+        }
+
+        .instructions {
+            font-size: 14px;
+            margin-top: 40px;
+            color: rgba(255, 255, 255, 0.8);
+            max-width: 500px;
+        }
+
+        .instructions li {
+            margin: 8px 0;
+        }
+
+        .game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            pointer-events: all;
+            color: white;
+        }
+
+        .game-over-screen.hidden {
+            display: none;
+            pointer-events: none;
+        }
+
+        .game-over-content {
+            text-align: center;
+        }
+
+        .game-over-content h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #4ade80;
+        }
+
+        .final-score {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #fbbf24;
+        }
+
+        .game-over-button {
+            background: #4ade80;
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            margin-top: 30px;
+            pointer-events: all;
+        }
+
+        .game-over-button:hover {
+            background: #22c55e;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <video id="camera-feed"></video>
+        <canvas id="canvas-overlay"></canvas>
+
+        <div class="ui-overlay">
+            <div class="ui-panel top-left">
+                <div class="status-text" id="status">🔍 Kamera wird aktiviert...</div>
+                <div class="score" id="score">Score: 0</div>
+            </div>
+
+            <div class="ui-panel top-right">
+                <div id="timer">Zeit: 0s</div>
+                <div id="dirt-count" style="margin-top: 10px;">Schmutz: 0</div>
+            </div>
+
+            <div class="ui-panel bottom-center">
+                <div class="status-text">Fortschritt:</div>
+                <div class="progress-container">
+                    <div class="progress-bar" id="progress-bar">0%</div>
+                </div>
+                <div style="margin-top: 10px; font-size: 14px;" id="progress-text">0% gereinigt</div>
+            </div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <div class="start-content">
+                <h1>🧹 Room Cleaning Game</h1>
+                <p>Nutze deine Hand/Staubwedel um den Raum zu reinigen!</p>
+                <button class="start-button" onclick="startGame()">Spiel starten</button>
+                <ul class="instructions">
+                    <li>✅ Erlaube Kamerazugriff</li>
+                    <li>🔍 Raum scannen</li>
+                    <li>👋 Mit Hand über Schmutzpunkte fahren</li>
+                    <li>🎵 Bubble Sound = Punkt weg!</li>
+                    <li>📊 Versuche 100% zu erreichen</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="game-over-screen hidden" id="gameOverScreen">
+            <div class="game-over-content">
+                <h1>🎉 Raum gereinigt!</h1>
+                <div class="final-score" id="finalScore">Score: 0</div>
+                <p id="finalStats"></p>
+                <button class="game-over-button" onclick="location.reload()">Nochmal spielen</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2"></script>
+    <script src="game.js"></script>
+</body>
+</html>
