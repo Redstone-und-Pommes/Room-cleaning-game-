@@ -8,6 +8,9 @@ const gameState = {
     elapsedTime: 0,
     handDetections: [],
     gameTime: 120, // 2 Minuten Spielzeit
+    cameraMode: 'user', // 'user' oder 'environment'
+    devMode: false, // Dev-Mode für Hand-Tracking
+    referenceDistance: 100, // Referenzdistanz für Depth-Berechnung
 };
 
 // Audio Context für Bubble Sound
@@ -72,9 +75,19 @@ async function loadHandDetector() {
 // Kamera aktivieren
 async function setupCamera() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+        }
+
+        const constraints = {
+            video: {
+                facingMode: gameState.cameraMode,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
         
         return new Promise((resolve) => {
@@ -89,31 +102,50 @@ async function setupCamera() {
     }
 }
 
-// Dirt Particles Generator
+// Kamera wechseln
+async function toggleCamera() {
+    gameState.cameraMode = gameState.cameraMode === 'user' ? 'environment' : 'user';
+    await setupCamera();
+    document.querySelector('.control-button').textContent = 
+        gameState.cameraMode === 'user' ? '📷 Vorderkamera' : '📷 Rückkamera';
+}
+
+// Dev-Mode Toggle
+function toggleDevMode() {
+    gameState.devMode = document.getElementById('devModeToggle').checked;
+}
+
+// Dirt Particles Generator - FIXIERT AUF WAND
 function generateDirtParticles() {
     gameState.dirtParticles = [];
     const particleCount = 50;
+    const minDistance = 300; // Minimale Distanz vom Betrachter
 
     for (let i = 0; i < particleCount; i++) {
+        const depth = Math.random() * 200 + minDistance; // 300-500px Distanz
         gameState.dirtParticles.push({
             id: i,
             x: Math.random() * canvas.width,
             y: Math.random() * canvas.height,
-            size: Math.random() * 8 + 4,
+            depth: depth, // 3D Tiefe
+            baseSize: Math.random() * 8 + 4,
             opacity: 0.8 + Math.random() * 0.2,
-            vx: (Math.random() - 0.5) * 0.5,
-            vy: (Math.random() - 0.5) * 0.5,
+            fixed: true, // Fixiert auf der Wand!
         });
     }
     document.getElementById('dirt-count').textContent = `Schmutz: ${gameState.dirtParticles.length}`;
 }
 
-// Draw Particles
+// Draw Particles mit Depth-Effekt
 function drawDirtParticles() {
     gameState.dirtParticles.forEach((particle) => {
         if (!gameState.cleanedParticles.has(particle.id)) {
+            // Größe basierend auf Tiefe (weiter weg = kleiner)
+            const sizeScale = gameState.referenceDistance / particle.depth;
+            const size = particle.baseSize * sizeScale;
+
             ctx.beginPath();
-            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2);
             ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity})`;
             ctx.fill();
 
@@ -122,24 +154,19 @@ function drawDirtParticles() {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Update position (slight floating motion)
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-
-            // Bounce off edges
-            if (particle.x < 0 || particle.x > canvas.width) particle.vx *= -1;
-            if (particle.y < 0 || particle.y > canvas.height) particle.vy *= -1;
-
-            // Keep in bounds
-            particle.x = Math.max(particle.size, Math.min(canvas.width - particle.size, particle.x));
-            particle.y = Math.max(particle.size, Math.min(canvas.height - particle.size, particle.y));
+            // Optional: Tiefe-Text (nur im Dev-Mode)
+            if (gameState.devMode) {
+                ctx.fillStyle = 'rgba(255, 200, 0, 0.5)';
+                ctx.font = '10px Arial';
+                ctx.fillText(Math.round(particle.depth), particle.x - 15, particle.y + 20);
+            }
         }
     });
 }
 
 // Hand Detection & Particle Cleaning
 async function detectHandsAndClean() {
-    if (!handDetector || !video.readyState === video.HAVE_ENOUGH_DATA) return;
+    if (!handDetector || video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
     try {
         const predictions = await handDetector.estimateHands(video, false);
@@ -147,48 +174,60 @@ async function detectHandsAndClean() {
         if (predictions.length > 0) {
             predictions.forEach((hand) => {
                 const landmarks = hand.keypoints;
+                
+                // Index-Finger-Spitze für Präzision
+                const indexTip = landmarks[8]; // Index finger tip
+                const handX = indexTip.x * canvas.width;
+                const handY = indexTip.y * canvas.height;
+                const detectRadius = 80; // Erkennungsradius
 
-                // Nutze alle Hand-Punkte für größere Hitbox
-                landmarks.forEach((landmark) => {
-                    const handX = landmark.x * canvas.width;
-                    const handY = landmark.y * canvas.height;
-                    const detectRadius = 60; // Erkennungsradius
+                // Dev-Mode: Roten Punkt zeichnen
+                if (gameState.devMode) {
+                    ctx.beginPath();
+                    ctx.arc(handX, handY, 10, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255, 0, 0, 1)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
 
-                    // Check collision mit Dirt Particles
-                    gameState.dirtParticles.forEach((particle) => {
-                        if (!gameState.cleanedParticles.has(particle.id)) {
-                            const distance = Math.sqrt(
-                                Math.pow(handX - particle.x, 2) +
-                                Math.pow(handY - particle.y, 2)
-                            );
+                // Check collision mit Dirt Particles
+                gameState.dirtParticles.forEach((particle) => {
+                    if (!gameState.cleanedParticles.has(particle.id)) {
+                        const sizeScale = gameState.referenceDistance / particle.depth;
+                        const size = particle.baseSize * sizeScale;
 
-                            if (distance < detectRadius) {
-                                // Particle gereinigt!
-                                gameState.cleanedParticles.add(particle.id);
-                                gameState.score += 10;
-                                playBubbleSound();
-                                createCleanEffect(particle.x, particle.y);
-                            }
+                        const distance = Math.sqrt(
+                            Math.pow(handX - particle.x, 2) +
+                            Math.pow(handY - particle.y, 2)
+                        );
+
+                        if (distance < detectRadius + size) {
+                            // Particle gereinigt!
+                            gameState.cleanedParticles.add(particle.id);
+                            gameState.score += 10;
+                            playBubbleSound();
+                            createCleanEffect(particle.x, particle.y, size);
                         }
-                    });
+                    }
                 });
             });
         }
 
         gameState.handDetections = predictions;
     } catch (error) {
-        // Stille Fehlerbehandlung
+        console.error('Hand detection error:', error);
     }
 }
 
 // Clean Effect Animation
-function createCleanEffect(x, y) {
-    // Kurze Blitz-Animation
+function createCleanEffect(x, y, size) {
     const effect = {
         x,
         y,
-        radius: 20,
-        maxRadius: 60,
+        radius: size,
+        maxRadius: size + 40,
         opacity: 1,
         startTime: Date.now(),
         duration: 300,
@@ -268,6 +307,8 @@ function gameLoop() {
 // Start Game
 async function startGame() {
     document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('controlPanel').style.display = 'flex';
+    document.getElementById('cancelButton').style.display = 'block';
     document.getElementById('status').textContent = '👋 Raum wird gescannt...';
 
     await loadHandDetector();
@@ -278,6 +319,23 @@ async function startGame() {
         gameState.startTime = Date.now();
         document.getElementById('status').textContent = '🧹 Los geht\'s!';
     }, 2000);
+}
+
+// Cancel Game
+function cancelGame() {
+    if (confirm('Möchtest du wirklich abbrechen?')) {
+        gameState.gameActive = false;
+        gameState.score = 0;
+        gameState.dirtParticles = [];
+        gameState.cleanedParticles.clear();
+        
+        document.getElementById('startScreen').classList.remove('hidden');
+        document.getElementById('controlPanel').style.display = 'none';
+        document.getElementById('cancelButton').style.display = 'none';
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
 }
 
 // End Game
@@ -293,11 +351,13 @@ function endGame(won, progress) {
         <p>Zeit: ${gameState.elapsedTime}s</p>
         <p>${won ? '🎉 Perfekt sauber!' : '⏰ Zeit vorbei!'}</p>
     `;
+
+    document.getElementById('controlPanel').style.display = 'none';
+    document.getElementById('cancelButton').style.display = 'none';
 }
 
 // Initialize
 window.addEventListener('load', async () => {
     await setupCamera();
-    await loadHandDetector();
     gameLoop();
 });
