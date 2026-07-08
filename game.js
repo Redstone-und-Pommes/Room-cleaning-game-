@@ -58,17 +58,23 @@ window.addEventListener('resize', () => {
 let handDetector;
 async function loadHandDetector() {
     try {
+        document.getElementById('status').textContent = '⏳ Hand-Detektor lädt...';
+        
         const model = await handPoseDetection.createDetector(
             handPoseDetection.SupportedModels.MediaPipeHands,
             {
                 runtime: 'mediapipe',
-                solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
+                solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469404858',
+                maxHands: 2,
             }
         );
         handDetector = model;
-        console.log('Hand detector loaded!');
+        console.log('✅ Hand detector loaded successfully!');
+        document.getElementById('status').textContent = '✅ Hand-Detektor bereit!';
     } catch (error) {
-        console.error('Error loading hand detector:', error);
+        console.error('❌ Error loading hand detector:', error);
+        document.getElementById('status').textContent = '❌ Hand-Detektor Fehler!';
+        alert('Hand-Detektor konnte nicht geladen werden. Bitte Seite neuladen.');
     }
 }
 
@@ -113,6 +119,7 @@ async function toggleCamera() {
 // Dev-Mode Toggle
 function toggleDevMode() {
     gameState.devMode = document.getElementById('devModeToggle').checked;
+    console.log('Dev-Mode:', gameState.devMode ? 'ON' : 'OFF');
 }
 
 // Dirt Particles Generator - FIXIERT AUF WAND
@@ -156,9 +163,9 @@ function drawDirtParticles() {
 
             // Optional: Tiefe-Text (nur im Dev-Mode)
             if (gameState.devMode) {
-                ctx.fillStyle = 'rgba(255, 200, 0, 0.5)';
-                ctx.font = '10px Arial';
-                ctx.fillText(Math.round(particle.depth), particle.x - 15, particle.y + 20);
+                ctx.fillStyle = 'rgba(255, 200, 0, 0.8)';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(Math.round(particle.depth) + 'px', particle.x - 20, particle.y + 25);
             }
         }
     });
@@ -184,12 +191,17 @@ async function detectHandsAndClean() {
                 // Dev-Mode: Roten Punkt zeichnen
                 if (gameState.devMode) {
                     ctx.beginPath();
-                    ctx.arc(handX, handY, 10, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+                    ctx.arc(handX, handY, 15, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 0, 0, 1)';
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 3;
                     ctx.stroke();
+                    
+                    // Text
+                    ctx.fillStyle = 'rgba(255, 100, 100, 1)';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.fillText('Hand', handX - 20, handY - 25);
                 }
 
                 // Check collision mit Dirt Particles
@@ -209,10 +221,16 @@ async function detectHandsAndClean() {
                             gameState.score += 10;
                             playBubbleSound();
                             createCleanEffect(particle.x, particle.y, size);
+                            console.log('✅ Punkt gereinigt! Score:', gameState.score);
                         }
                     }
                 });
             });
+        } else if (gameState.devMode) {
+            // Dev-Mode: Keine Hand erkannt
+            ctx.fillStyle = 'rgba(255, 0, 0, 1)';
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('❌ Keine Hand erkannt', 20, 60);
         }
 
         gameState.handDetections = predictions;
@@ -317,7 +335,7 @@ async function startGame() {
     setTimeout(() => {
         gameState.gameActive = true;
         gameState.startTime = Date.now();
-        document.getElementById('status').textContent = '🧹 Los geht\'s!';
+        document.getElementById('status').textContent = '🧹 Los geht\'s! Dev-Mode für Hand-Test: toggle an!';
     }, 2000);
 }
 
@@ -358,6 +376,9 @@ function endGame(won, progress) {
 
 // Initialize
 window.addEventListener('load', async () => {
+    console.log('🎮 Spiel wird initialisiert...');
     await setupCamera();
+    console.log('📷 Kamera ready!');
     gameLoop();
+    console.log('🎬 Game Loop läuft!');
 });
